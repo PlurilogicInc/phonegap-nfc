@@ -30,14 +30,22 @@
     NSLog(@"(c) 2017-2020 Don Coleman");
 
     [super pluginInitialize];
-    
-    if (@available(iOS 11, *)) {
-        if (![NFCNDEFReaderSession readingAvailable]) {
-            NSLog(@"NFC Support is NOT available");
-        }
-    } else {
-        NSLog(@"NFC Support is NOT available before iOS 11");
+
+    if (![self isReadingAvailable]) {
+        NSLog(@"NFC Support is NOT available");
     }
+}
+
+// readingAvailable also depends on the app's com.apple.developer.nfc.readersession.formats
+// entitlement: NFCNDEFReaderSession needs NDEF, NFCTagReaderSession needs TAG. App Store
+// Connect now rejects NDEF, so a TAG-only app must check NFCTagReaderSession as well.
+- (BOOL)isReadingAvailable {
+    if (@available(iOS 13.0, *)) {
+        return [NFCTagReaderSession readingAvailable] || [NFCNDEFReaderSession readingAvailable];
+    } else if (@available(iOS 11.0, *)) {
+        return [NFCNDEFReaderSession readingAvailable];
+    }
+    return NO;
 }
 
 #pragma mark - Cordova Plugin Methods
@@ -186,12 +194,8 @@
 - (void)enabled:(CDVInvokedUrlCommand *)command {
     NSLog(@"enabled");
     CDVPluginResult *pluginResult;
-    if (@available(iOS 11.0, *)) {
-        if ([NFCNDEFReaderSession readingAvailable]) {
-            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-        } else {
-            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"NO_NFC"];
-        }
+    if ([self isReadingAvailable]) {
+        pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     } else {
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"NO_NFC"];
     }
